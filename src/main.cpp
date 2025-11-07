@@ -1,15 +1,49 @@
+/*********************************
+ * Writing code for a ESP32 powered PWM Current Limter
+ * Its using a INA226 to read the current. 
+ * 
+ * The INA 226 is conected with I2C on I/O 21 and 22
+ * 
+ * I/O 04 is used to control the MOSFET Driver an MCP1407
+ * 
+ * The PCB is designed to have a 10A capacity at 12V
+ * 
+ * 
+ * 
+ * 
+ * 
+ * *********************************/
+
 #include <Arduino.h>
 #include <INA226.h>
+#include <Wire.h>
 
 
 // put function declarations here:
-int myFunction(int, int);
+int GetCurrent();         //Get the current reading from the INA226 in mA
 
+
+/************************* POWER SETTING *************************/
+const int max_power = 8;
+
+
+/************************* HARDWARE PINS *************************/
+const int pwm_out     = 04;
+
+
+/************************* INA226 SETUP  *************************/
 INA226 INA(0x40);
 
-void setup() {
 
+/************************* START SETUP ***************************/
+
+void setup() {
+  Serial.begin(115200);
   Wire.begin();
+
+  pinMode(pwm_out, OUTPUT);
+  digitalWrite(pwm_out, LOW);
+
   if (!INA.begin() )
     {
       Serial.println("could not connect. Fix and Reboot");
@@ -19,28 +53,27 @@ void setup() {
 
 }
 
+
+/************************* MAIN LOOP *************************/
+
 void loop() {
   // put your main code here, to run repeatedly:
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+
+
+/************************* FUNCTIONS *************************/
+
+//Return the current reading from IN226 in mA
+int GetCurrent() {
+  int current = 0;
+  
+  current = INA.getCurrent_mA();
+
+  return(current);
+
+
 }
 
-/* Example of functuions for the INA226
-Serial.println("\nBUS\tSHUNT\tCURRENT\tPOWER");
-  for (int i = 0; i < 20; i++)
-  {
-    Serial.print(INA.getBusVoltage(), 3);
-    Serial.print("\t");
-    Serial.print(INA.getShuntVoltage_mV(), 3);
-    Serial.print("\t");
-    Serial.print(INA.getCurrent_mA(), 3);
-    Serial.print("\t");
-    Serial.print(INA.getPower_mW(), 3);
-    Serial.println();
-    delay(1000);
-*/
 
   
