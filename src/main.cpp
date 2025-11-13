@@ -20,11 +20,19 @@
 
 
 // put function declarations here:
-int GetCurrent();         //Get the current reading from the INA226 in mA
+float GetCurrent();         //Get the current reading from the INA226 in mA
+
+void coreOne(void * pvParameters);
+void coreTwo(void * pvParameters);
 
 
-/************************* POWER SETTING *************************/
-const int max_power = 8;
+/************************* GLOBAL VARIABLES *************************/
+
+const float_t max_power = 8;
+float currentNow = 0.0;
+
+TaskHandle_t Core1;
+TaskHandle_t Core2;
 
 
 /************************* HARDWARE PINS *************************/
@@ -36,6 +44,7 @@ INA226 INA(0x40);
 
 
 /************************* START SETUP ***************************/
+
 
 void setup() {
   Serial.begin(115200);
@@ -50,25 +59,51 @@ void setup() {
     }
   INA.setMaxCurrentShunt(1, 0.002);
 
-
+  // Launch FreeRTOS tasks on both cores
+  xTaskCreatePinnedToCore(coreOne, "Core1", 6000, NULL, 1, &Core1, 0);
+  xTaskCreatePinnedToCore(coreTwo, "Core2", 6000, NULL, 2, &Core2, 1);
 }
 
 
-/************************* MAIN LOOP *************************/
-
+/************************* MAIN LOOP (NOT USEED) *************************/
 void loop() {
-  // put your main code here, to run repeatedly:
+  // Not USED In MULTI-THREAD
+}
+
+/*********************************************************************
+   CORE 1 TASK (Do PWM)
+*********************************************************************/
+void coreOne(void * pvParameters) {
+
+int timeOn = 0;
+
+
+
 }
 
 
+/*********************************************************************
+   CORE 2 TASK (READ CURRENT every 100ms)
+*********************************************************************/
+void coreTwo(void * pvParameters) {
+  
+currentNow = GetCurrent();
+
+
+  //vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay
+}
 
 /************************* FUNCTIONS *************************/
 
 //Return the current reading from IN226 in mA
-int GetCurrent() {
-  int current = 0;
+float GetCurrent() {
+  float current = 0;
   
-  current = INA.getCurrent_mA();
+  for (int x =0; x <= 3; x++){
+    current += float(INA.getCurrent_mA());
+    vTaskDelay(5 / portTICK_PERIOD_MS); // Small delay
+  }
+  current = current / 3.0;
 
   return(current);
 
