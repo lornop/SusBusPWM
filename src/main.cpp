@@ -8,7 +8,8 @@
  * 
  * The PCB is designed to have a 10A capacity at 12V
  * 
- * 
+ * Uses:
+ * INA226 by Rob Tillaart 0.6.4 Arduino library for INA226 power sensor
  * 
  * 
  * 
@@ -18,53 +19,58 @@
 #include <INA226.h>
 #include <Wire.h>
 
-//*ESP32 LEDC Setup and PWM */
-// use 12 bit precision for LEDC timer
-#define LEDC_TIMER_12_BIT 12
+/***************************************************************
+ * Function Declarations
+ ***************************************************************/
+float GetCurrent();          // Get current reading from INA226 in mA
+int   DoPWMTime(int value);  // Calculate how long to keep MOSFET open
 
-// use 5000 Hz as a LEDC base frequency
-#define LEDC_BASE_FREQ 5000
+void coreOne(void *pvParameters);
+void coreTwo(void *pvParameters);
 
-// define starting duty, target duty and maximum fade time
-#define LEDC_START_DUTY  (0)
-#define LEDC_TARGET_DUTY (4095)
+/***************************************************************
+ * ESP32 LEDC Setup and PWM Configuration
+***************************************************************/
 
+// Use 12-bit precision for LEDC timer
+#define LEDC_TIMER_12_BIT   12
+// Use 5000 Hz as LEDC base frequency
+#define LEDC_BASE_FREQ      5000
+// Define Minimum and Maximum Duty Cycles
+#define LEDC_START_DUTY     0
+#define LEDC_TARGET_DUTY    4095
 
-
-// put function declarations here:
-float GetCurrent();         //Get the current reading from the INA226 in mA
-int   DoPWMTime(int);       //Figure out how long to have the MOSFET Open
-
-void coreOne(void * pvParameters);
-void coreTwo(void * pvParameters);
-
-
-/************************* GLOBAL VARIABLES *************************/
-
-const float_t max_power = 8000;             //Max Power in mA
-float currentNow        = 0.0;              //The INA226 Reading
-int   timeOn            = 0;                //How Long Our PWM pulse is
-
+/***************************************************************
+ * Global Variables
+ ***************************************************************/
+const float max_power = 8000.0;   // Max power in mA
+float currentNow      = 0.0;      // Current INA226 reading
+int   timeOn          = 0;        // PWM pulse duration
 TaskHandle_t Core1;
 TaskHandle_t Core2;
 
 
-/************************* HARDWARE PINS *************************/
-const int PWM_OUT     = 04;
+/***************************************************************
+ * Hardware Pins
+ ***************************************************************/
+const int PWM_OUT = 4;
 
 
-/************************* INA226 SETUP  *************************/
+/***************************************************************
+ * INA226 Configuration
+ ***************************************************************/
 INA226 INA(0x40);
 
 
-/************************* START SETUP ***************************/
-
+/***************************************************************
+ * Setup
+ ***************************************************************/
 
 void setup() {
   Serial.begin(115200);
   Wire.begin();
 
-
+  // Start the INA226 Initialization
   if (!INA.begin() )
     {
       Serial.println("could not connect. Fix and Reboot");
@@ -72,8 +78,6 @@ void setup() {
 
   INA.setMaxCurrentShunt(10, 0.002); 
   INA.setAverage(INA226_4_SAMPLES); 
-
-
 
   // Launch FreeRTOS tasks on both cores
   xTaskCreatePinnedToCore(coreOne, "Core1", 6000, NULL, 1, &Core1, 0);
@@ -110,10 +114,12 @@ void coreOne(void * pvParameters) {
 void coreTwo(void * pvParameters) {
 
   while(1){
+    vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay
     
     currentNow = GetCurrent();
 
     timeOn = DoPWMTime(timeOn);
+    
   }
 
 }
@@ -123,13 +129,11 @@ void coreTwo(void * pvParameters) {
 //Return the average of three samples current reading from IN226 in mA
 float GetCurrent() {
   float current = 0;
+  vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay
   
-
   current = INA.getCurrent_mA();
   
-
   return(current);
-
 
 }
 
