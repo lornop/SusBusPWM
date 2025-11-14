@@ -45,7 +45,6 @@ void coreTwo(void *pvParameters);
  ***************************************************************/
 const float max_power = 8000.0;   // Max power in mA
 float currentNow      = 0.0;      // Current INA226 reading
-int   timeOn          = 0;        // PWM pulse duration
 TaskHandle_t Core1;
 TaskHandle_t Core2;
 
@@ -100,7 +99,9 @@ void loop() {
 void coreOne(void * pvParameters) {
   while(1){
 
-    int PWMFreq = timeOn;
+    // Wait here until Core2 notifies us that timeOn has changed
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    int PWMFreq = DoPWMTime(PWMFreq);
     ledcWrite(0, PWMFreq);
 
   }
@@ -118,7 +119,8 @@ void coreTwo(void * pvParameters) {
     
     currentNow = GetCurrent();
 
-    timeOn = DoPWMTime(timeOn);
+    // Notify Core1 that timeOn has changed
+    xTaskNotifyGive(Core1);
     
   }
 
@@ -129,7 +131,6 @@ void coreTwo(void * pvParameters) {
 //Return the average of three samples current reading from IN226 in mA
 float GetCurrent() {
   float current = 0;
-  vTaskDelay(10 / portTICK_PERIOD_MS); // Small delay
   
   current = INA.getCurrent_mA();
   
@@ -139,25 +140,25 @@ float GetCurrent() {
 
 
 //Take the current amount of current and either increase or decrease the amount of time to pulse the mosfet pin
-int DoPWMTime(int time) {
+int DoPWMTime(int pwm) {
 
-  if ((currentNow < max_power) && (time < LEDC_TARGET_DUTY)){      //Crank it up
-    time ++;
+  if ((currentNow < max_power) && (pwm < LEDC_TARGET_DUTY)){      //Crank it up
+    pwm ++;
   }
   
-  if ((currentNow > max_power) && (time > LEDC_START_DUTY)){        //Turn it down
-    time --;
+  if ((currentNow > max_power) && (pwm > LEDC_START_DUTY)){        //Turn it down
+    pwm --;
   }
 
-  if ((time > LEDC_TARGET_DUTY) || (time < LEDC_START_DUTY)){       // Something is wrong, just turn it off and start again
-    time = 0;   
+  if ((pwm > LEDC_TARGET_DUTY) || (pwm < LEDC_START_DUTY)){       // Something is wrong, just turn it off and start again
+    pwm = 0;   
   }
 
   else {
-    time = time;                                                    //Just right
+    pwm = pwm;                                                    //Just right
   }
   
-  return(time);
+  return(pwm);
 
 }
 
